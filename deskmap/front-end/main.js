@@ -45,6 +45,8 @@ let layout = Array(ROWS).fill(null).map(() => Array(COLS).fill(null).map(() => (
 let studentNames = [];
 let isAdjustMode = false;
 let dragSourceCell = null;
+let selectedCells = []; // Tracks Multi-Blocks dynamically
+let dragSourceCoords = null; // Vector mapping anchor component
 
 // Initialize
 function init() {
@@ -78,6 +80,7 @@ function createGrid() {
       cell.addEventListener("input", handleCellInput);
       cell.addEventListener("dblclick", handleCellDblClick); 
       cell.addEventListener("contextmenu", handleCellRightClick); // Deletes desk geometry natively
+      cell.addEventListener("click", handleCellClick); // Shift-Click grouping mechanics
       
       chartGridEl.appendChild(cell);
     }
@@ -163,7 +166,9 @@ confirmTemplateBtn.addEventListener("click", async () => {
         return;
     }
     
-    // Removed the destructive layout wipe here so teachers can build the room FIRST, and then save it as a new layout without losing their work!
+    // Starts with 5x5 Standard array explicitly instead of cloning layout screen natively per user request!
+    applyPreset("standard");
+    
     const geometry = layout.flat().map(c => ({ d: c.isDesk }));
     const tid = teacherIdEl.value.trim() || "default";
     
@@ -202,6 +207,39 @@ deleteTemplateBtn.addEventListener("click", async () => {
 });
 
 // Map custom layout modifications reliably
+function clearSelection() {
+    selectedCells = [];
+    document.querySelectorAll(".cell.selected").forEach(c => c.classList.remove("selected"));
+}
+
+function handleCellClick(e) {
+    if (!isAdjustMode) return;
+    
+    // Clicking empty floor clears natively to drop grab focus
+    if (!this.classList.contains("is-desk")) {
+        if (!e.shiftKey) clearSelection();
+        return;
+    }
+    
+    const isStudentView = studentViewToggle.checked;
+    const mapX = isStudentView ? (COLS - 1) - Number(this.dataset.x) : Number(this.dataset.x);
+    const mapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
+    
+    if (e.shiftKey) {
+        e.preventDefault(); // Don't highlight text blocks globally
+        const idx = selectedCells.findIndex(sc => sc.x === mapX && sc.y === mapY);
+        if (idx >= 0) {
+            selectedCells.splice(idx, 1);
+            this.classList.remove("selected");
+        } else {
+            selectedCells.push({ x: mapX, y: mapY });
+            this.classList.add("selected");
+        }
+    } else {
+        clearSelection();
+    }
+}
+
 function handleCellDblClick(e) {
   if (!isAdjustMode) return;
   e.preventDefault();
@@ -258,6 +296,19 @@ function handleCellRightClick(e) {
 function handleDragStart(e) {
   if (!isAdjustMode || !this.classList.contains("is-desk")) { e.preventDefault(); return; }
   dragSourceCell = this;
+  
+  const isStudentView = studentViewToggle.checked;
+  const mapX = isStudentView ? (COLS - 1) - Number(this.dataset.x) : Number(this.dataset.x);
+  const mapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
+  
+  // Independent drag logic grabs strictly the parent element bypassing selected cache natively if it wasn't tracked globally
+  if (!selectedCells.some(sc => sc.x === mapX && sc.y === mapY)) {
+      clearSelection();
+      selectedCells.push({ x: mapX, y: mapY });
+      this.classList.add("selected");
+  }
+  
+  dragSourceCoords = { x: mapX, y: mapY };
   e.dataTransfer.effectAllowed = "move";
   e.dataTransfer.setData("text/plain", this.textContent);
   this.classList.add("dragging");
@@ -275,28 +326,72 @@ function handleDrop(e) {
   
   if (dragSourceCell !== this) {
     const isStudentView = studentViewToggle.checked;
-    const srcMapX = isStudentView ? (COLS - 1) - Number(dragSourceCell.dataset.x) : Number(dragSourceCell.dataset.x);
-    const srcMapY = isStudentView ? (ROWS - 1) - Number(dragSourceCell.dataset.y) : Number(dragSourceCell.dataset.y);
     const destMapX = isStudentView ? (COLS - 1) - Number(this.dataset.x) : Number(this.dataset.x);
     const destMapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
     
-    if (layout[destMapY][destMapX].isDesk) {
-       // Destination is a desk -> Swap Names!
-       const temp = layout[srcMapY][srcMapX].name;
-       layout[srcMapY][srcMapX].name = layout[destMapY][destMapX].name;
-       layout[destMapY][destMapX].name = temp;
+    const offsetX = destMapX - dragSourceCoords.x;
+    const offsetY = destMapY - dragSourceCoords.y;
+    
+    let isNameSwap = false;
+    let isValid = true;
+    
+    // Group boundary calculation natively mapped
+    const groupTargets = selectedCells.map(sc => ({
+        sX: sc.x, sY: sc.y,
+        dX: sc.x + offsetX, dY: sc.y + offsetY
+    }));
+    
+    groupTargets.forEach(tgt => {
+        if (tgt.dX < 0 || tgt.dX >= COLS || tgt.dY < 0 || tgt.dY >= ROWS) isValid = false;
+        else {
+            const trgGeo = layout[tgt.dY][tgt.dX];
+            const isInternal = selectedCells.some(sc => sc.x === tgt.dX && sc.y === tgt.dY);
+            if (trgGeo.isDesk && !isInternal) {
+                if (selectedCells.length === 1) isNameSwap = true;
+                else isValid = false;
+            }
+        }
+    });
+    
+    if (!isValid) {
+        alert("Blocked! The selected group is hitting an active desk or jumping out of the grid boundaries.");
+        clearSelection();
+        return false;
+    }
+    
+    if (isNameSwap) {
+        const sX = groupTargets[0].sX; const sY = groupTargets[0].sY;
+        const dX = groupTargets[0].dX; const dY = groupTargets[0].dY;
+        const temp = layout[sY][sX].name;
+        layout[sY][sX].name = layout[dY][dX].name;
+        layout[dY][dX].name = temp;
     } else {
-       // Destination is empty floor -> Move physical desk geometry!
-       layout[destMapY][destMapX].isDesk = true;
-       layout[destMapY][destMapX].name = layout[srcMapY][srcMapX].name;
-       
-       layout[srcMapY][srcMapX].isDesk = false;
-       layout[srcMapY][srcMapX].name = null;
-       
-       if (!layoutPresetEl.value.startsWith("template_") && layoutPresetEl.value !== "custom") {
+        // Safe deep extract before injections
+        const payload = groupTargets.map(tgt => ({
+           n: layout[tgt.sY][tgt.sX].name,
+           d: layout[tgt.sY][tgt.sX].isDesk,
+           ...tgt
+        }));
+        
+        // 1. Decouple native mapping cleanly to prevent internal overlapping artifacts
+        payload.forEach(tgt => {
+            layout[tgt.sY][tgt.sX].isDesk = false;
+            layout[tgt.sY][tgt.sX].name = null;
+        });
+        
+        // 2. Re-inject physically spanning exact vector offsets
+        payload.forEach(tgt => {
+            layout[tgt.dY][tgt.dX].isDesk = tgt.d;
+            layout[tgt.dY][tgt.dX].name = tgt.n;
+        });
+        
+        // Follow internal coordinates visually mapping DOM trackers natively mapping cleanly
+        selectedCells = payload.map(tgt => ({ x: tgt.dX, y: tgt.dY }));
+        
+        if (!layoutPresetEl.value.startsWith("template_") && layoutPresetEl.value !== "custom") {
            layoutPresetEl.value = "custom";
            previousPresetValue = "custom";
-       }
+        }
     }
     updateGrid(false);
   }
@@ -348,10 +443,12 @@ function updateGrid(animate = true) {
         // Draggable enabled natively, editable conditionally blocked to protect physics
         cell.setAttribute("draggable", "true");
         cell.classList.add("editable");
+        if (selectedCells.some(sc => sc.x === mapX && sc.y === mapY)) cell.classList.add("selected");
+        else cell.classList.remove("selected");
       } else {
         cell.removeAttribute("contenteditable");
         cell.removeAttribute("draggable");
-        cell.classList.remove("editable");
+        cell.classList.remove("editable", "selected");
       }
     } else {
       // Invisible geometry floor tiles
@@ -542,6 +639,7 @@ function clearBoard() {
 // UI binding triggers globally structured logically reliably
 adjustBtn.addEventListener("click", () => {
   isAdjustMode = !isAdjustMode;
+  if(!isAdjustMode) clearSelection();
   if(isAdjustMode) {
     adjustBtn.textContent = "🔓";
     adjustBtn.title = "Click to Lock Format securely natively mapped!";
