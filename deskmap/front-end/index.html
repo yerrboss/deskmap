@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeskMap – Classroom Seat Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-background"></div>
+  <div class="glass-container">
+    <header class="glass-header">
+      <div class="header-branding">
+        <h1>DeskMap</h1>
+        <p>Intelligent Seating Arrangements</p>
+      </div>
+      <div class="header-actions">
+        <!-- View toggle -->
+        <label class="toggle-switch">
+          <input type="checkbox" id="studentViewToggle" />
+          <span class="slider round"></span>
+          <span class="toggle-label">Student POV</span>
+        </label>
+        <button id="printBtn" class="btn btn-primary">Print Map</button>
+      </div>
+    </header>
+
+    <main class="main-layout">
+      <!-- Sidebar for Controls -->
+      <aside class="sidebar">
+        <div class="section glass-panel">
+          <h3>Class Details</h3>
+          <div class="input-group">
+            <label>Teacher ID</label>
+            <input type="text" id="teacherId" placeholder="e.g. Mr. Smith" />
+          </div>
+          <div class="input-group">
+            <label>Class Period</label>
+            <select id="classSet">
+              <option value="Mon_AM">Mon AM</option>
+              <option value="Mon_PM">Mon PM</option>
+              <option value="Tue_AM">Tue AM</option>
+              <option value="Tue_PM">Tue PM</option>
+              <option value="Wed_AM">Wed AM</option>
+              <option value="Wed_PM">Wed PM</option>
+              <option value="Thu_AM">Thu AM</option>
+            </select>
+          </div>
+          <div class="btn-group">
+            <button id="loadBtn" class="btn btn-secondary">Load Class</button>
+            <button id="saveBtn" class="btn btn-primary">Save Class</button>
+          </div>
+        </div>
+
+        <div class="section glass-panel">
+          <h3>Student Import</h3>
+          <div class="input-group file-import">
+            <label for="excelFile" class="file-label">Import Excel (.xlsx, .csv)</label>
+            <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" />
+          </div>
+          <div class="input-divider"><span>OR</span></div>
+          <div class="input-group">
+            <label>Paste Names (1 per line)</label>
+            <textarea id="nameInput" rows="5" placeholder="Jane Doe&#10;John Smith"></textarea>
+          </div>
+          <div style="display: flex; gap: 10px; width: 100%;">
+            <button id="pasteNamesBtn" class="btn btn-primary" style="flex: 1;">Generate Seating</button>
+            <button id="clearBtn" class="btn btn-secondary">Clear</button>
+          </div>
+        </div>
+
+        <div class="section glass-panel">
+          <h3>Class Notes</h3>
+          <textarea id="notesInput" rows="2" placeholder="Seating rules, reminders..."></textarea>
+        </div>
+      </aside>
+
+      <!-- Main Seating Area -->
+      <section class="seating-area">
+        <div class="room-wrapper" id="roomWrapper">
+          <div class="teacher-desk-anchor" id="teacherDeskAnchor">
+            <div class="teacher-desk">Front of Room</div>
+            <button id="adjustBtn" class="icon-btn" title="Click to Unlock Layout">🔒</button>
+          </div>
+          <div class="grid-container" id="gridContainer">
+            <div id="chartGrid" class="grid-board"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
