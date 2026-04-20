@@ -280,20 +280,29 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
 
 /* Print CSS */
 @media print {
-  @page { margin: 0; size: landscape; }
+  @page { margin: 0.5cm; size: landscape; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; text-shadow: none !important; }
-  body, html { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: white !important; }
+  
+  body, html { width: 100%; height: 100%; margin: 0; padding: 0; background: white !important; overflow: hidden; }
   .app-background, .sidebar, .glass-header, .room-controls, .editor-tooltip, .desktop-right-container, .desktop-spacer, .modal-overlay { display: none !important; }
   
-  .glass-container { width: 100vw; height: 100vh; border: none; box-shadow: none; border-radius: 0; margin: 0; padding: 0; background: transparent; }
-  .main-layout { overflow: hidden; display: flex; align-items: center; justify-content: center; background: white; }
-  .seating-area { padding: 20px; transform: scale(0.95); display: flex; justify-content: center; }
-  .room-wrapper { margin: 0; width: 100%; max-width: 900px; }
+  .glass-container { width: 100vw; height: 100vh; border: none !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; background: transparent !important; }
+  .main-layout { overflow: hidden; display: flex; align-items: center; justify-content: center; background: white !important; width: 100%; height: 100%; }
   
-  .teacher-desk-anchor { display: flex; justify-content: center; margin-bottom: 20px; }
-  .teacher-desk { background: white !important; border: 2px solid #000 !important; color: black !important; box-shadow: none !important; font-weight: bold; }
+  .seating-area { padding: 0 !important; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; transform: none !important; }
+  .room-wrapper { margin: 0 !important; width: 100% !important; display: flex; flex-direction: column; align-items: center; }
+  
+  .teacher-desk-anchor { display: flex !important; justify-content: center !important; margin-bottom: 0.5cm !important; width: 100% !important; }
+  .room-wrapper.student-view-active .teacher-desk-anchor { margin-top: 0.5cm !important; margin-bottom: 0 !important; }
+  
+  .teacher-desk { background: white !important; border: 3px solid #000 !important; color: black !important; box-shadow: 4px 4px 0px #000 !important; font-weight: bold !important; font-size: 1.2rem !important; padding: 0.4cm 2cm !important; border-radius: 4px !important; }
+  
+  .grid-container { width: 100%; display: flex; justify-content: center; }
+  
+  /* Absolute scaling locks the entire grid heavily onto the precise bounds of standard paper sheets without native overflowing clips */
+  .grid-board { width: 14cm !important; height: 14cm !important; max-width: none !important; aspect-ratio: 1 !important; margin: 0 auto !important; gap: 0.2cm !important; }
   
   .cell { color: transparent !important; } 
-  .cell.is-desk { visibility: visible !important; border: 1px dashed #888 !important; background: white !important; color: #555 !important; box-shadow: none !important; font-size: 0.9rem !important; }
-  .cell.filled { border: 2px solid #000 !important; background: #f1f5f9 !important; color: #000 !important; font-weight: bold !important; font-size: 1rem !important; }
+  .cell.is-desk { visibility: visible !important; border: 2px dashed #bbb !important; background: transparent !important; font-size: 0.9rem !important; border-radius: 4px !important; }
+  .cell.filled { border: 3px solid #000 !important; background: #f8fafc !important; color: #000 !important; font-weight: 800 !important; font-size: 1rem !important; box-shadow: 3px 3px 0px #000 !important; }
 }
