@@ -280,29 +280,36 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
 
 /* Print CSS */
 @media print {
-  @page { margin: 0.5cm; size: landscape; }
-  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; text-shadow: none !important; }
+  @page { margin: 0; size: landscape; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   
-  body, html { width: 100%; height: 100%; margin: 0; padding: 0; background: white !important; overflow: hidden; }
-  .app-background, .sidebar, .glass-header, .room-controls, .editor-tooltip, .desktop-right-container, .desktop-spacer, .modal-overlay { display: none !important; }
+  body, html { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
   
-  .glass-container { width: 100vw; height: 100vh; border: none !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; background: transparent !important; }
-  .main-layout { overflow: hidden; display: flex; align-items: center; justify-content: center; background: white !important; width: 100%; height: 100%; }
+  /* Hide the UI controls so only the visual seating map is printed */
+  .sidebar, .glass-header, .room-controls, .editor-tooltip, .desktop-right-container, .desktop-spacer, .modal-overlay { display: none !important; }
   
-  .seating-area { padding: 0 !important; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; transform: none !important; }
-  .room-wrapper { margin: 0 !important; width: 100% !important; display: flex; flex-direction: column; align-items: center; }
+  /* Stretch the native glass background identically across the full paper sheet */
+  .glass-container { width: 100vw; height: 100vh; max-width: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; }
   
-  .teacher-desk-anchor { display: flex !important; justify-content: center !important; margin-bottom: 0.5cm !important; width: 100% !important; }
-  .room-wrapper.student-view-active .teacher-desk-anchor { margin-top: 0.5cm !important; margin-bottom: 0 !important; }
+  /* ACTUAL COLORS OVERRIDE: Aggressively flatten gradients to solid hex codes so standard printers don't strip the CSS rendering algorithms! */
+  body:not(.ink-saver) { background: #0f172a !important; color: #f8fafc !important; }
+  body:not(.ink-saver) .app-background { display: none !important; }
+  body:not(.ink-saver) .glass-container { background: #1e293b !important; }
+  body:not(.ink-saver) .teacher-desk { background: #1e293b !important; color: #cbd5e1 !important; border: 1px solid rgba(255,255,255,0.2) !important; }
+  body:not(.ink-saver) .cell.is-desk { background: #334155 !important; border: 1px solid rgba(255,255,255,0.2) !important; color: #f8fafc !important; }
+  body:not(.ink-saver) .cell.filled { background: #475569 !important; color: white !important; border: 1px solid #50599C!important; }
   
-  .teacher-desk { background: white !important; border: 3px solid #000 !important; color: black !important; box-shadow: 4px 4px 0px #000 !important; font-weight: bold !important; font-size: 1.2rem !important; padding: 0.4cm 2cm !important; border-radius: 4px !important; }
+  /* Securely center the grid to prevent horizontal stretching on A4 sizes */
+  .seating-area { padding: 40px !important; display: flex; align-items: center; justify-content: center; }
+  .grid-board { max-width: 65vw !important; max-height: 75vh !important; aspect-ratio: 1; margin: auto; }
   
-  .grid-container { width: 100%; display: flex; justify-content: center; }
-  
-  /* Absolute scaling locks the entire grid heavily onto the precise bounds of standard paper sheets without native overflowing clips */
-  .grid-board { width: 14cm !important; height: 14cm !important; max-width: none !important; aspect-ratio: 1 !important; margin: 0 auto !important; gap: 0.2cm !important; }
-  
-  .cell { color: transparent !important; } 
-  .cell.is-desk { visibility: visible !important; border: 2px dashed #bbb !important; background: transparent !important; font-size: 0.9rem !important; border-radius: 4px !important; }
-  .cell.filled { border: 3px solid #000 !important; background: #f8fafc !important; color: #000 !important; font-weight: 800 !important; font-size: 1rem !important; box-shadow: 3px 3px 0px #000 !important; }
+  /* INK SAVER MODE (Pure B&W Minimalist Print) */
+  body.ink-saver { background: white !important; }
+  body.ink-saver .app-background { display: none !important; }
+  body.ink-saver * { text-shadow: none !important; }
+  body.ink-saver .glass-container { background: transparent !important; }
+  body.ink-saver .teacher-desk { background: white !important; border: 3px solid #000 !important; color: black !important; box-shadow: none !important; font-weight: bold !important; font-size: 1.2rem !important; }
+  body.ink-saver .cell { color: transparent !important; } 
+  body.ink-saver .cell.is-desk { border: 2px dashed #999 !important; background: transparent !important; }
+  body.ink-saver .cell.filled { border: 3px solid #000 !important; background: #fff !important; color: #000 !important; box-shadow: none !important; font-weight: 800 !important; font-size: 1.05rem !important; }
 }
