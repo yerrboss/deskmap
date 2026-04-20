@@ -226,7 +226,7 @@ function handleCellDblClick(e) {
       this.addEventListener("blur", blurHandler);
   } else {
       // Double clicking an empty floor tile spawns a desk natively
-      if (layoutPresetEl.value !== "custom") {
+      if (!layoutPresetEl.value.startsWith("template_") && layoutPresetEl.value !== "custom") {
          layoutPresetEl.value = "custom";
          previousPresetValue = "custom";
       }
@@ -244,7 +244,7 @@ function handleCellRightClick(e) {
    const mapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
 
    if (layout[mapY][mapX].isDesk) {
-       if (layoutPresetEl.value !== "custom") {
+       if (!layoutPresetEl.value.startsWith("template_") && layoutPresetEl.value !== "custom") {
            layoutPresetEl.value = "custom";
            previousPresetValue = "custom";
        }
@@ -293,7 +293,10 @@ function handleDrop(e) {
        layout[srcMapY][srcMapX].isDesk = false;
        layout[srcMapY][srcMapX].name = null;
        
-       if (layoutPresetEl.value !== "custom") layoutPresetEl.value = "custom";
+       if (!layoutPresetEl.value.startsWith("template_") && layoutPresetEl.value !== "custom") {
+           layoutPresetEl.value = "custom";
+           previousPresetValue = "custom";
+       }
     }
     updateGrid(false);
   }
@@ -561,6 +564,8 @@ studentViewToggle.addEventListener("change", () => {
   }
   updateGrid(true);
 });
+
+document.getElementById("printBtn").addEventListener("click", () => window.print());
 
 pasteNamesBtn.addEventListener("click", generateSeating);
 clearBtn.addEventListener("click", clearBoard);
