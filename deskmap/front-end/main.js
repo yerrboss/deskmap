@@ -48,6 +48,43 @@ let isAdjustMode = false;
 let dragSourceCell = null;
 let selectedCells = []; // Tracks Multi-Blocks dynamically
 let dragSourceCoords = null; // Vector mapping anchor component
+let lastClickedCell = null; // Used for shift-click bounds spanning
+
+// History tracking
+let historyStack = [];
+function saveState() {
+    if (historyStack.length >= 30) historyStack.shift();
+    historyStack.push(JSON.stringify(layout));
+}
+function undoState() {
+    if (historyStack.length === 0) return;
+    const prevState = JSON.parse(historyStack.pop());
+    
+    const changedCells = [];
+    for(let y=0; y<ROWS; y++) {
+        for(let x=0; x<COLS; x++) {
+            if (JSON.stringify(layout[y][x]) !== JSON.stringify(prevState[y][x])) changedCells.push({x, y});
+        }
+    }
+    
+    layout = prevState;
+    clearSelection();
+    updateGrid(false);
+    
+    const isStudentView = studentViewToggle.checked;
+    changedCells.forEach(cc => {
+        const domX = isStudentView ? (COLS - 1) - cc.x : cc.x;
+        const domY = isStudentView ? (ROWS - 1) - cc.y : cc.y;
+        const cellDOM = chartGridEl.children[domY * COLS + domX];
+        if (cellDOM && layout[cc.y][cc.x].name) cellDOM.classList.add("pop");
+    });
+}
+window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undoState();
+    }
+});
 
 // Initialize
 function init() {
@@ -80,7 +117,6 @@ function createGrid() {
       // Editing
       cell.addEventListener("input", handleCellInput);
       cell.addEventListener("dblclick", handleCellDblClick); 
-      cell.addEventListener("contextmenu", handleCellRightClick); // Deletes desk geometry natively
       cell.addEventListener("click", handleCellClick); // Shift-Click grouping mechanics
       
       chartGridEl.appendChild(cell);
@@ -90,6 +126,7 @@ function createGrid() {
 
 // Preset Architectures Engine
 function applyPreset(presetId) {
+  saveState();
   // Wipe to transparent empty floor
   layout = Array(ROWS).fill(null).map(() => Array(COLS).fill(null).map(() => ({ name: null, isDesk: false })));
 
@@ -228,16 +265,34 @@ function handleCellClick(e) {
     
     if (e.shiftKey) {
         e.preventDefault(); // Don't highlight text blocks globally
-        const idx = selectedCells.findIndex(sc => sc.x === mapX && sc.y === mapY);
-        if (idx >= 0) {
-            selectedCells.splice(idx, 1);
-            this.classList.remove("selected");
+        if (lastClickedCell && lastClickedCell.cell !== this) {
+            const startX = Math.min(lastClickedCell.x, mapX);
+            const startY = Math.min(lastClickedCell.y, mapY);
+            const endX = Math.max(lastClickedCell.x, mapX);
+            const endY = Math.max(lastClickedCell.y, mapY);
+            for (let y = startY; y <= endY; y++) {
+                for (let x = startX; x <= endX; x++) {
+                    if (layout[y][x].isDesk && !selectedCells.some(sc => sc.x === x && sc.y === y)) {
+                        selectedCells.push({x, y});
+                    }
+                }
+            }
+            updateGrid(false); // Map visually cleanly
         } else {
-            selectedCells.push({ x: mapX, y: mapY });
-            this.classList.add("selected");
+            const idx = selectedCells.findIndex(sc => sc.x === mapX && sc.y === mapY);
+            if (idx >= 0) {
+                selectedCells.splice(idx, 1);
+                this.classList.remove("selected");
+            } else {
+                selectedCells.push({ x: mapX, y: mapY });
+                this.classList.add("selected");
+            }
         }
     } else {
         clearSelection();
+        selectedCells.push({ x: mapX, y: mapY });
+        lastClickedCell = { x: mapX, y: mapY, cell: this };
+        this.classList.add("selected");
     }
 }
 
@@ -257,7 +312,10 @@ function handleCellDblClick(e) {
       const blurHandler = () => {
           this.removeAttribute("contenteditable");
           const val = this.textContent.trim() || null;
-          layout[mapY][mapX].name = val;
+          if (layout[mapY][mapX].name !== val) {
+              saveState();
+              layout[mapY][mapX].name = val;
+          }
           if (val) this.classList.add("filled");
           else this.classList.remove("filled");
           this.removeEventListener("blur", blurHandler);
@@ -269,29 +327,13 @@ function handleCellDblClick(e) {
          layoutPresetEl.value = "custom";
          previousPresetValue = "custom";
       }
+      saveState();
       layout[mapY][mapX].isDesk = true;
       updateGrid(false);
   }
 }
 
-function handleCellRightClick(e) {
-   if (!isAdjustMode) return;
-   e.preventDefault();
-   
-   const isStudentView = studentViewToggle.checked;
-   const mapX = isStudentView ? (COLS - 1) - Number(this.dataset.x) : Number(this.dataset.x);
-   const mapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
 
-   if (layout[mapY][mapX].isDesk) {
-       if (!layoutPresetEl.value.startsWith("template_") && layoutPresetEl.value !== "custom") {
-           layoutPresetEl.value = "custom";
-           previousPresetValue = "custom";
-       }
-       layout[mapY][mapX].isDesk = false;
-       layout[mapY][mapX].name = null;
-       updateGrid(false);
-   }
-}
 
 // Fluid Drag Mapping Mechanics
 function handleDragStart(e) {
@@ -361,12 +403,14 @@ function handleDrop(e) {
     }
     
     if (isNameSwap) {
+        saveState();
         const sX = groupTargets[0].sX; const sY = groupTargets[0].sY;
         const dX = groupTargets[0].dX; const dY = groupTargets[0].dY;
         const temp = layout[sY][sX].name;
         layout[sY][sX].name = layout[dY][dX].name;
         layout[dY][dX].name = temp;
     } else {
+        saveState();
         // Safe deep extract before injections
         const payload = groupTargets.map(tgt => ({
            n: layout[tgt.sY][tgt.sX].name,
@@ -459,6 +503,18 @@ function updateGrid(animate = true) {
       cell.textContent = "";
     }
   });
+
+  const mechanicallyHarvested = [];
+  for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+          if (layout[y][x].isDesk && layout[y][x].name) {
+              mechanicallyHarvested.push(layout[y][x].name);
+          }
+      }
+  }
+  if (document.activeElement !== nameInputEl) {
+      nameInputEl.value = mechanicallyHarvested.join('\n');
+  }
 }
 
 function shuffleArray(array) {
@@ -472,10 +528,18 @@ function shuffleArray(array) {
 
 // Standard Fisher-Yates generator mapped tightly exclusively to populated geometries
 function generateSeating() {
-  let namesToUse = [...studentNames];
-  if (namesToUse.length === 0) namesToUse = nameInputEl.value.split("\n").map(s => s.trim()).filter(Boolean);
-  if (namesToUse.length === 0) return alert("Please upload an Excel file or paste names first!");
+  let namesToUse = nameInputEl.value.split("\n").map(s => s.trim()).filter(Boolean);
   
+  if (namesToUse.length === 0) {
+      const currentMapNames = layout.flat().filter(cell => cell.isDesk && cell.name).map(cell => cell.name);
+      if (currentMapNames.length > 0) {
+          namesToUse = currentMapNames;
+      } else {
+          return alert("Please upload an Excel file, paste names, or double-click desks to type names first!");
+      }
+  }
+  
+  saveState();
   // Wipe existing names immediately but RETAIN geometry bounds constraints
   for(let y=0; y<ROWS; y++) {
       for(let x=0; x<COLS; x++) {
@@ -506,10 +570,10 @@ excelFileEl.addEventListener("change", (e) => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
     // Flatten logic
-    studentNames = rows.flat().map(s => s ? String(s).trim() : "").filter(Boolean);
-    if(studentNames.length > 0) {
-      alert(`Loaded ${studentNames.length} names! Click Generate!`);
-      nameInputEl.value = "";
+    const importedNames = rows.flat().map(s => s ? String(s).trim() : "").filter(Boolean);
+    if(importedNames.length > 0) {
+      alert(`Loaded ${importedNames.length} names! Click Generate!`);
+      nameInputEl.value = importedNames.join('\n');
     }
   };
   reader.readAsBinaryString(file);
@@ -632,8 +696,9 @@ async function loadLayouts() {
 // Helper utilities mappings
 function clearBoard() {
   if (!confirm("Are you sure you want to completely clear seats? Geometry will remain intact.")) return;
+  saveState();
   for(let y=0; y<ROWS; y++) for(let x=0; x<COLS; x++) layout[y][x].name = null;
-  studentNames = []; nameInputEl.value = ""; if(excelFileEl) excelFileEl.value = ""; notesInputEl.value = "";
+  nameInputEl.value = ""; if(excelFileEl) excelFileEl.value = ""; notesInputEl.value = "";
   updateGrid(true);
 }
 
@@ -676,5 +741,75 @@ pasteNamesBtn.addEventListener("click", generateSeating);
 clearBtn.addEventListener("click", clearBoard);
 loadBtn.addEventListener("click", loadLayouts);
 saveBtn.addEventListener("click", saveLayout);
+
+// Marquee Selection Engine smoothly binding Pointer Events
+let isMarqueeActive = false;
+let marqueeStartX = 0, marqueeStartY = 0;
+let marqueeBox = document.createElement("div");
+marqueeBox.className = "selection-box";
+
+chartGridEl.addEventListener("mousedown", (e) => {
+    if (!isAdjustMode || e.target.classList.contains("is-desk")) return;
+    if (!e.shiftKey) clearSelection();
+    
+    isMarqueeActive = true;
+    const rect = chartGridEl.getBoundingClientRect();
+    marqueeStartX = e.clientX - rect.left;
+    marqueeStartY = e.clientY - rect.top;
+    
+    marqueeBox.style.left = marqueeStartX + "px";
+    marqueeBox.style.top = marqueeStartY + "px";
+    marqueeBox.style.width = "0px";
+    marqueeBox.style.height = "0px";
+    marqueeBox.style.display = "block";
+    chartGridEl.appendChild(marqueeBox);
+});
+
+document.addEventListener("mousemove", (e) => {
+    if (!isMarqueeActive) return;
+    const rect = chartGridEl.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+    
+    const x = Math.min(marqueeStartX, currentX);
+    const y = Math.min(marqueeStartY, currentY);
+    const w = Math.abs(currentX - marqueeStartX);
+    const h = Math.abs(currentY - marqueeStartY);
+    
+    marqueeBox.style.left = Math.max(0, x) + "px";
+    marqueeBox.style.top = Math.max(0, y) + "px";
+    marqueeBox.style.width = Math.min(rect.width - x, w) + "px";
+    marqueeBox.style.height = Math.min(rect.height - y, h) + "px";
+});
+
+document.addEventListener("mouseup", (e) => {
+    if (!isMarqueeActive) return;
+    isMarqueeActive = false;
+    marqueeBox.style.display = "none";
+    if (marqueeBox.parentNode) marqueeBox.parentNode.removeChild(marqueeBox);
+    
+    const mRect = marqueeBox.getBoundingClientRect();
+    const cells = chartGridEl.querySelectorAll(".cell.is-desk");
+    let changed = false;
+    
+    cells.forEach(cell => {
+        const cRect = cell.getBoundingClientRect();
+        const overlap = !(cRect.right < mRect.left || 
+                          cRect.left > mRect.right || 
+                          cRect.bottom < mRect.top || 
+                          cRect.top > mRect.bottom);
+                          
+        if (overlap) {
+            const isStudentView = studentViewToggle.checked;
+            const mapX = isStudentView ? (COLS - 1) - Number(cell.dataset.x) : Number(cell.dataset.x);
+            const mapY = isStudentView ? (ROWS - 1) - Number(cell.dataset.y) : Number(cell.dataset.y);
+            if (!selectedCells.some(sc => sc.x === mapX && sc.y === mapY)) {
+                selectedCells.push({ x: mapX, y: mapY });
+                changed = true;
+            }
+        }
+    });
+    if (changed) updateGrid(false);
+});
 
 document.addEventListener("DOMContentLoaded", init);
