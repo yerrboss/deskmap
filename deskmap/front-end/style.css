@@ -222,7 +222,7 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
   border: 1px dashed rgba(255, 255, 255, 0.2); cursor: pointer;
 }
 .room-wrapper.adjusting .cell.is-desk {
-  border: 1px solid rgba(255,255,255,0.4); cursor: grab;
+  border: 1px solid rgba(255,255,255,0.4); cursor: grab; touch-action: none;
 }
 .room-wrapper.adjusting .cell.is-desk:active { cursor: grabbing; }
 
