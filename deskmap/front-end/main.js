@@ -16,6 +16,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const styleInject = document.createElement("style");
+styleInject.textContent = `
+.selection-box { position: absolute; background: rgba(96, 165, 250, 0.2) !important; border: 1px dashed rgba(96, 165, 250, 0.8) !important; pointer-events: none !important; z-index: 1000 !important; }
+.grid-board { position: relative !important; }
+.room-wrapper.adjusting .grid-board { touch-action: none !important; }
+`;
+document.head.appendChild(styleInject);
+
 // DOM elements
 const teacherIdEl        = document.getElementById("teacherId");
 const classSetEl         = document.getElementById("classSet");
@@ -33,7 +41,7 @@ const loadBtn            = document.getElementById("loadBtn");
 const saveBtn            = document.getElementById("saveBtn");
 const layoutPresetEl     = document.getElementById("layoutPreset");
 const saveTemplateBtn    = document.getElementById("saveTemplateBtn");
-const deleteTemplateBtn  = document.getElementById("deleteTemplateBtn");
+// const deleteTemplateBtn  = document.getElementById("deleteTemplateBtn");
 const templateModal      = document.getElementById("templateModal");
 const templateNameInput  = document.getElementById("templateNameInput");
 const confirmTemplateBtn = document.getElementById("confirmTemplateBtn");
