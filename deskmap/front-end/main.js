@@ -25,6 +25,7 @@ const pasteNamesBtn      = document.getElementById("pasteNamesBtn");
 const chartGridEl        = document.getElementById("chartGrid");
 const roomWrapperEl      = document.getElementById("roomWrapper");
 const studentViewToggle  = document.getElementById("studentViewToggle");
+const inkSaverToggle     = document.getElementById("inkSaverToggle");
 const adjustBtn          = document.getElementById("adjustBtn");
 const clearBtn           = document.getElementById("clearBtn");
 const notesInputEl       = document.getElementById("notesInput");
@@ -452,7 +453,7 @@ function updateGrid(animate = true) {
       }
     } else {
       // Invisible geometry floor tiles
-      cell.classList.remove("is-desk", "filled", "editable");
+      cell.classList.remove("is-desk", "filled", "editable", "selected");
       cell.removeAttribute("contenteditable");
       cell.removeAttribute("draggable");
       cell.textContent = "";
@@ -662,6 +663,12 @@ studentViewToggle.addEventListener("change", () => {
   }
   updateGrid(true);
 });
+
+inkSaverToggle.addEventListener("change", (e) => {
+    if (e.target.checked) document.body.classList.add("ink-saver");
+    else document.body.classList.remove("ink-saver");
+});
+if (inkSaverToggle.checked) document.body.classList.add("ink-saver"); // Init state seamlessly
 
 document.getElementById("printBtn").addEventListener("click", () => window.print());
 
