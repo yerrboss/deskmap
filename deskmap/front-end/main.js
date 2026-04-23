@@ -204,7 +204,7 @@ layoutPresetEl.addEventListener("change", (e) => {
 // Modal Actions
 cancelTemplateBtn.addEventListener("click", () => {
     templateModal.style.display = "none";
-    layoutPresetEl.value = "standard";
+    layoutPresetEl.value = previousPresetValue;
 });
 
 confirmTemplateBtn.addEventListener("click", async () => {
