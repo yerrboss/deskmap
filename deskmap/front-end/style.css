@@ -273,6 +273,7 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
   
   .grid-board { gap: 4px; max-width: 95vw; }
   .cell { font-size: 0.70rem; padding: 2px; }
+  .student-number { font-size: 0.4rem; top: 1px; left: 2px; }
   .room-controls { flex-direction: row; gap: 10px; justify-content: flex-end; }
   .preset-dropdown { width: 100%; max-width: none; }
   .teacher-desk-anchor { display: flex; flex-direction: column; gap: 15px; justify-content: center; margin-top: 10px; }
