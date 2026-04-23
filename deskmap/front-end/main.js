@@ -33,6 +33,7 @@ const pasteNamesBtn      = document.getElementById("pasteNamesBtn");
 const chartGridEl        = document.getElementById("chartGrid");
 const roomWrapperEl      = document.getElementById("roomWrapper");
 const studentViewToggle  = document.getElementById("studentViewToggle");
+const povLabel           = document.getElementById("povLabel");
 const inkSaverToggle     = document.getElementById("inkSaverToggle");
 const adjustBtn          = document.getElementById("adjustBtn");
 const clearBtn           = document.getElementById("clearBtn");
@@ -41,7 +42,7 @@ const loadBtn            = document.getElementById("loadBtn");
 const saveBtn            = document.getElementById("saveBtn");
 const layoutPresetEl     = document.getElementById("layoutPreset");
 const saveTemplateBtn    = document.getElementById("saveTemplateBtn");
-// const deleteTemplateBtn  = document.getElementById("deleteTemplateBtn");
+const deleteTemplateBtn  = document.getElementById("deleteTemplateBtn");
 const templateModal      = document.getElementById("templateModal");
 const templateNameInput  = document.getElementById("templateNameInput");
 const confirmTemplateBtn = document.getElementById("confirmTemplateBtn");
@@ -50,7 +51,7 @@ const cancelTemplateBtn  = document.getElementById("cancelTemplateBtn");
 // 8x8 grid state (64 cells)
 const COLS = 8;
 const ROWS = 8;
-let layout = Array(ROWS).fill(null).map(() => Array(COLS).fill(null).map(() => ({ name: null, isDesk: false })));
+let layout = Array(ROWS).fill(null).map(() => Array(COLS).fill(null).map(() => ({ name: null, isDesk: false, pinned: false })));
 let studentNames = [];
 let isAdjustMode = false;
 let dragSourceCell = null;
@@ -126,6 +127,7 @@ function createGrid() {
       cell.addEventListener("input", handleCellInput);
       cell.addEventListener("dblclick", handleCellDblClick); 
       cell.addEventListener("click", handleCellClick); // Shift-Click grouping mechanics
+      cell.addEventListener("contextmenu", handleContextMenu);
       
       chartGridEl.appendChild(cell);
     }
@@ -136,7 +138,7 @@ function createGrid() {
 function applyPreset(presetId) {
   saveState();
   // Wipe to transparent empty floor
-  layout = Array(ROWS).fill(null).map(() => Array(COLS).fill(null).map(() => ({ name: null, isDesk: false })));
+  layout = Array(ROWS).fill(null).map(() => Array(COLS).fill(null).map(() => ({ name: null, isDesk: false, pinned: false })));
 
   if (presetId === "standard") {
     // Elegant 5x5 perfectly centered inside the 8x8 shell
@@ -165,7 +167,7 @@ function applyPreset(presetId) {
       const geo = window.userTemplates[tName];
       layout = [];
       for (let i = 0; i < ROWS; i++) {
-        layout.push(geo.slice(i * COLS, i * COLS + COLS).map(c => ({ name: null, isDesk: c.d })));
+        layout.push(geo.slice(i * COLS, i * COLS + COLS).map(c => ({ name: null, isDesk: c.d, pinned: c.p || false })));
       }
     }
   }
@@ -337,9 +339,65 @@ function handleCellDblClick(e) {
       }
       saveState();
       layout[mapY][mapX].isDesk = true;
+      layout[mapY][mapX].pinned = false;
       updateGrid(false);
   }
 }
+
+// Custom Context Menu Logic
+const contextMenu = document.createElement("div");
+contextMenu.className = "custom-context-menu";
+contextMenu.innerHTML = `
+    <div class="menu-item" id="menuPin">📌 Pin Seat</div>
+    <div class="menu-item danger" id="menuDelete">🗑️ Delete Table</div>
+`;
+document.body.appendChild(contextMenu);
+
+let contextTarget = null;
+
+function handleContextMenu(e) {
+    if (!isAdjustMode || !this.classList.contains("is-desk")) return;
+    e.preventDefault();
+    
+    contextTarget = this;
+    const isStudentView = studentViewToggle.checked;
+    const mapX = isStudentView ? (COLS - 1) - Number(this.dataset.x) : Number(this.dataset.x);
+    const mapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
+    
+    const isPinned = layout[mapY][mapX].pinned;
+    document.getElementById("menuPin").textContent = isPinned ? "🔓 Unpin Seat" : "📌 Pin Seat";
+    
+    contextMenu.style.left = e.clientX + "px";
+    contextMenu.style.top = e.clientY + "px";
+    contextMenu.style.display = "block";
+}
+
+document.addEventListener("click", () => contextMenu.style.display = "none");
+
+document.getElementById("menuPin").addEventListener("click", () => {
+    if (!contextTarget) return;
+    saveState();
+    const isStudentView = studentViewToggle.checked;
+    const mapX = isStudentView ? (COLS - 1) - Number(contextTarget.dataset.x) : Number(contextTarget.dataset.x);
+    const mapY = isStudentView ? (ROWS - 1) - Number(contextTarget.dataset.y) : Number(contextTarget.dataset.y);
+    
+    layout[mapY][mapX].pinned = !layout[mapY][mapX].pinned;
+    updateGrid(false);
+});
+
+document.getElementById("menuDelete").addEventListener("click", () => {
+    if (!contextTarget) return;
+    if (!confirm("Delete this table?")) return;
+    saveState();
+    const isStudentView = studentViewToggle.checked;
+    const mapX = isStudentView ? (COLS - 1) - Number(contextTarget.dataset.x) : Number(contextTarget.dataset.x);
+    const mapY = isStudentView ? (ROWS - 1) - Number(contextTarget.dataset.y) : Number(contextTarget.dataset.y);
+    
+    layout[mapY][mapX].isDesk = false;
+    layout[mapY][mapX].name = null;
+    layout[mapY][mapX].pinned = false;
+    updateGrid(false);
+});
 
 
 
@@ -351,6 +409,8 @@ function handleDragStart(e) {
   const isStudentView = studentViewToggle.checked;
   const mapX = isStudentView ? (COLS - 1) - Number(this.dataset.x) : Number(this.dataset.x);
   const mapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
+  
+  if (layout[mapY][mapX].pinned) { e.preventDefault(); return; }
   
   // Independent drag logic grabs strictly the parent element bypassing selected cache natively if it wasn't tracked globally
   if (!selectedCells.some(sc => sc.x === mapX && sc.y === mapY)) {
@@ -397,8 +457,8 @@ function handleDrop(e) {
         else {
             const trgGeo = layout[tgt.dY][tgt.dX];
             const isInternal = selectedCells.some(sc => sc.x === tgt.dX && sc.y === tgt.dY);
-            if (trgGeo.isDesk && !isInternal) {
-                if (selectedCells.length === 1) isNameSwap = true;
+            if ((trgGeo.isDesk || trgGeo.pinned) && !isInternal) {
+                if (selectedCells.length === 1 && !trgGeo.pinned) isNameSwap = true;
                 else isValid = false;
             }
         }
@@ -430,12 +490,14 @@ function handleDrop(e) {
         payload.forEach(tgt => {
             layout[tgt.sY][tgt.sX].isDesk = false;
             layout[tgt.sY][tgt.sX].name = null;
+            layout[tgt.sY][tgt.sX].pinned = false;
         });
         
         // 2. Re-inject physically spanning exact vector offsets
         payload.forEach(tgt => {
             layout[tgt.dY][tgt.dX].isDesk = tgt.d;
             layout[tgt.dY][tgt.dX].name = tgt.n;
+            layout[tgt.dY][tgt.dX].pinned = false;
         });
         
         // Follow internal coordinates visually mapping DOM trackers natively mapping cleanly
@@ -457,8 +519,8 @@ function handleDragEnd(e) {
 function handleCellInput(e) {
   if (!isAdjustMode || !this.classList.contains("is-desk")) return;
   const isStudentView = studentViewToggle.checked;
-  const mapX = isStudentView ? (COLS - 1) - Number(this.dataset.x) : Number(this.dataset.x);
-  const mapY = isStudentView ? (ROWS - 1) - Number(this.dataset.y) : Number(this.dataset.y);
+  const mapX = isStudentView ? Number(this.dataset.x) : (COLS - 1) - Number(this.dataset.x);
+  const mapY = isStudentView ? Number(this.dataset.y) : (ROWS - 1) - Number(this.dataset.y);
   
   layout[mapY][mapX].name = this.textContent.trim() || null;
   if (layout[mapY][mapX].name) this.classList.add("filled");
@@ -470,6 +532,17 @@ function updateGrid(animate = true) {
   const isStudentView = studentViewToggle.checked;
   const cells = Array.from(chartGridEl.children);
   
+  // Always calculate student numbers
+  let studentNumbers = {};
+  let count = 1;
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (layout[y][x].isDesk && layout[y][x].name) {
+        studentNumbers[`${x},${y}`] = count++;
+      }
+    }
+  }
+  
   cells.forEach((cell) => {
     const domX = Number(cell.dataset.x);
     const domY = Number(cell.dataset.y);
@@ -479,22 +552,26 @@ function updateGrid(animate = true) {
     // Grabs active logical element mapped backwards seamlessly
     const cellData = layout[mapY][mapX];
     
-    cell.classList.remove("pop");
+    cell.classList.remove("pop", "is-pinned");
     void cell.offsetWidth;
     
     if (cellData.isDesk) {
       cell.classList.add("is-desk");
-      cell.textContent = cellData.name || "";
+      if (cellData.pinned) cell.classList.add("is-pinned");
+      
       if (cellData.name) {
+        const num = studentNumbers[`${mapX},${mapY}`];
+        cell.innerHTML = `<span class="student-number">${num}</span><span class="student-name">${cellData.name}</span>`;
         cell.classList.add("filled");
         if (animate) cell.classList.add("pop");
       } else {
+        cell.innerHTML = "";
         cell.classList.remove("filled");
       }
       
       if (isAdjustMode) {
         // Draggable enabled natively, editable conditionally blocked to protect physics
-        cell.setAttribute("draggable", "true");
+        cell.setAttribute("draggable", cellData.pinned ? "false" : "true");
         cell.classList.add("editable");
         if (selectedCells.some(sc => sc.x === mapX && sc.y === mapY)) cell.classList.add("selected");
         else cell.classList.remove("selected");
@@ -596,7 +673,7 @@ function getStorageKey() {
 
 async function saveLayout() {
   // Convert 8x8 objects to structurally compact maps
-  const serialized = layout.flat().map(c => ({ n: c.name, d: c.isDesk }));
+  const serialized = layout.flat().map(c => ({ n: c.name, d: c.isDesk, p: c.pinned }));
   const payload = {
     layout: serialized,
     notes: notesInputEl.value,
@@ -655,7 +732,7 @@ saveTemplateBtn.addEventListener("click", async () => {
     const tid = teacherIdEl.value.trim() || "default";
     
     // Architect physical shape exclusively
-    const geometry = layout.flat().map(c => ({ d: c.isDesk }));
+    const geometry = layout.flat().map(c => ({ d: c.isDesk, p: c.pinned }));
     
     saveTemplateBtn.textContent = "⏳";
     try {
@@ -679,7 +756,7 @@ async function loadLayouts() {
       if (data.layout && data.layout.length === ROWS * COLS) {
         layout = [];
         for (let i = 0; i < ROWS; i++) {
-          layout.push(data.layout.slice(i * COLS, i * COLS + COLS).map(c => ({ name: c.n, isDesk: c.d })));
+          layout.push(data.layout.slice(i * COLS, i * COLS + COLS).map(c => ({ name: c.n, isDesk: c.d, pinned: c.p || false })));
         }
       } else {
         // Fallback fallback fallback
@@ -731,8 +808,10 @@ adjustBtn.addEventListener("click", () => {
 studentViewToggle.addEventListener("change", () => {
   if (studentViewToggle.checked) {
     roomWrapperEl.classList.add("student-view-active");
+    povLabel.textContent = "Teacher POV";
   } else {
     roomWrapperEl.classList.remove("student-view-active");
+    povLabel.textContent = "Student POV";
   }
   updateGrid(true);
 });
@@ -757,7 +836,8 @@ let marqueeBox = document.createElement("div");
 marqueeBox.className = "selection-box";
 
 chartGridEl.addEventListener("mousedown", (e) => {
-    if (!isAdjustMode || e.target.classList.contains("is-desk")) return;
+    if (!isAdjustMode || e.target.closest(".is-desk")) return;
+    e.preventDefault(); // Prevent text highlighting during marquee selection
     if (!e.shiftKey) clearSelection();
     
     isMarqueeActive = true;
