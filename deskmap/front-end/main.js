@@ -214,10 +214,8 @@ confirmTemplateBtn.addEventListener("click", async () => {
         return;
     }
     
-    // Starts with 5x5 Standard array explicitly instead of cloning layout screen natively per user request!
-    applyPreset("standard");
-    
-    const geometry = layout.flat().map(c => ({ d: c.isDesk }));
+    // Saves the current layout as is, including pinned status
+    const geometry = layout.flat().map(c => ({ d: c.isDesk, p: !!c.pinned }));
     const tid = teacherIdEl.value.trim() || "default";
     
     confirmTemplateBtn.textContent = "⏳ Saving...";
