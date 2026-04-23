@@ -196,6 +196,7 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
   padding: 6px; word-break: break-word; display: flex; justify-content: center; align-items: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color: #f1f5f9; user-select: none;
+  position: relative;
   visibility: hidden; pointer-events: none; /* Empty spaces are untouchable floors by default */
 }
 
@@ -301,7 +302,26 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
   .sidebar, .glass-header, .room-controls, .editor-tooltip, .desktop-right-container, .desktop-spacer, .modal-overlay { display: none !important; }
   
   /* Stretch the native glass background identically across the full paper sheet */
-  .glass-container { width: 100vw; height: 100vh; max-width: none !important; border: none !important; border-radius: 0 !important; margin: 0 !important; }
+  .glass-container { 
+    width: 100vw; 
+    height: auto !important; 
+    min-height: 50vh !important;
+    max-width: none !important; 
+    border: none !important; 
+    border-radius: 0 !important; 
+    margin: 0 !important; 
+    border-bottom: 2px dashed #ccc !important;
+    justify-content: flex-start !important;
+    padding-bottom: 40px !important;
+  }
+
+  .teacher-desk-anchor {
+    margin: 10px 0 20px 0 !important;
+  }
+  .teacher-desk {
+    padding: 6px 30px !important;
+    font-size: 0.7rem !important;
+  }
   
   /* ACTUAL COLORS OVERRIDE: Aggressively flatten gradients to solid hex codes so standard printers don't strip the CSS rendering algorithms! */
   body:not(.ink-saver) { background: #0f172a !important; color: #f8fafc !important; }
@@ -312,8 +332,9 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
   body:not(.ink-saver) .cell.filled { background: #475569 !important; color: white !important; border: 1px solid #50599C!important; }
   
   /* Securely center the grid to prevent horizontal stretching on A4 sizes */
-  .seating-area { padding: 40px !important; display: flex; align-items: center; justify-content: center; }
-  .grid-board { max-width: 65vw !important; max-height: 75vh !important; aspect-ratio: 1; margin: auto; }
+  .seating-area { padding: 10px !important; display: flex; align-items: center; justify-content: center; overflow: visible !important; }
+  .grid-board { width: 100% !important; max-width: 850px !important; max-height: 42vh !important; height: auto !important; aspect-ratio: auto !important; margin: auto; overflow: visible !important; gap: 8px !important; }
+  .cell { font-size: 0.75rem !important; padding: 4px !important; border-radius: 6px !important; min-height: 30px !important; }
   
   /* INK SAVER MODE (Pure B&W Minimalist Print) */
   body.ink-saver { background: white !important; }
@@ -324,4 +345,58 @@ input:checked + .slider:before { transform: translateX(18px); background-color: 
   body.ink-saver .cell { color: transparent !important; } 
   body.ink-saver .cell.is-desk { border: 2px dashed #999 !important; background: transparent !important; }
   body.ink-saver .cell.filled { border: 3px solid #000 !important; background: #fff !important; color: #000 !important; box-shadow: none !important; font-weight: 800 !important; font-size: 1.05rem !important; }
+}
+
+/* Custom Context Menu */
+.custom-context-menu {
+  position: fixed;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: none;
+  min-width: 150px;
+  padding: 5px 0;
+  backdrop-filter: blur(10px);
+}
+.menu-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #f1f5f9;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.menu-item:hover {
+  background: var(--primary-color);
+}
+.menu-item.danger:hover {
+  background: #ef4444;
+}
+
+/* Pinned Seat Indicator */
+.cell.is-pinned::after {
+  content: "📌";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.65rem;
+  filter: grayscale(0.5);
+}
+
+/* Student Numbering */
+.student-number {
+  position: absolute;
+  top: 2.5px;
+  left: 4.5px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  pointer-events: none;
+}
+body.ink-saver .student-number {
+  color: black !important;
 }
